@@ -262,3 +262,59 @@ Look for these indicators in the console output:
 - `load_input()`: Loads CSV into `params.evap_schedule_mol_per_day_L`
 - `_get_evap_steps_variable_schedule()`: Slices schedule by simulation days
 - `_write_reaction_block()`: Generates variable-rate PHREEQC input blocks
+
+### **Q: How exactly are the rates implemented - is it a matrix?**
+
+**No, it's not a matrix approach.** The system uses **PHREEQC's sequential multi-step reaction system** instead.
+
+**Sequential Steps Implementation:**
+
+**1. CSV → PHREEQC Steps (Not Matrix)**
+```python
+# Your CSV data:
+# Day 1: 0.1938 mol/day/L
+# Day 2: 0.3973 mol/day/L  
+# Day 3: 0.3762 mol/day/L
+
+# Gets converted to PHREEQC input:
+REACTION 1
+Water
+-0.1938 mol    # Step 1 (Day 1)
+-0.3973 mol    # Step 2 (Day 2)
+-0.3762 mol    # Step 3 (Day 3)
+3 steps        # Total reaction steps
+```
+
+**2. Code Implementation** (`src/domain/simulation.py`):
+```python
+def _write_reaction_block(self, fh, ...):
+    if self.params.evap_schedule_mol_per_day_L:  # Variable rates
+        # Get slice of schedule for this simulation stage
+        sched = full[start:end]  # e.g., days 76-142
+        
+        # Write each day as separate PHREEQC step
+        sched_line = " ".join(f"-{rate}" for rate in sched)
+        fh.write(f"{sched_line}\n")  # One line with all rates
+        fh.write("INCREMENTAL_REACTIONS true\n")
+```
+
+**3. PHREEQC Execution Process:**
+- **Step 1**: Remove 0.1938 mol water → calculate equilibrium → check mineral precipitation
+- **Step 2**: Remove 0.3973 mol water → calculate equilibrium → check mineral precipitation
+- **Step 3**: Remove 0.3762 mol water → calculate equilibrium → check mineral precipitation
+- **Result**: Each step builds on the previous step's chemistry
+
+**Why Sequential Steps (Not Matrix)?**
+- **Chemical Accuracy**: Each step calculates proper equilibrium before next step
+- **PHREEQC Native**: Uses built-in multi-step reaction capability
+- **Mineral Tracking**: Halite formation depends on actual concentration at each step
+- **Memory Efficient**: No large matrices needed in memory
+- **Matrix Problems**: Chemical equilibrium is non-linear, can't be pre-calculated
+
+**Real Example from Console:**
+```
+Using schedule slice [76:142] = 66 days, first few: [0.237, 0.237, 0.237, 0.237, 0.237]
+```
+Creates PHREEQC input with 66 sequential reaction steps, each removing the exact amount for that day.
+
+**Key Point**: **1 CSV row** = **1 PHREEQC step** = **1 simulation day** with proper geochemical modeling at each time step!
