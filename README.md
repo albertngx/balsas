@@ -70,7 +70,7 @@ salina-new/
 │   ├── output/                   # PHREEQC result files (results.dat, results2.dat, ...)
 │   ├── plots/                    # Generated visualizations (pond1_stage1.png, ...)
 │   └── run_summary/              # Transfer analysis reports
-├── files/                        # Input data
+├── inputs/                        # Input data
 │   ├── brineData.txt             # Initial brine composition (PHREEQC SOLUTION format)
 │   ├── pondsData.txt             # Pond specifications (names and volumes)
 │   └── evap_diaria.csv           # Daily evaporation rates (365 days, seasonal)
@@ -82,7 +82,7 @@ salina-new/
 
 ## Experiment Inputs
 
-### Input Files (files/ directory):
+### Input Files (inputs/ directory):
 - **brineData.txt**: Initial brine composition in PHREEQC SOLUTION format
 - **pondsData.txt**: Pond specifications (tab-separated: name, volume in m³)
 - **evap_diaria.csv**: 365-day seasonal evaporation schedule (mol/day/L)
@@ -135,7 +135,7 @@ salina-new/
 
 ### Common Issues:
 - **PHREEQC not found**: Check `env.yaml` phreeqc_bin path
-- **Input files missing**: Ensure all files exist in `files/` directory
+- **Input files missing**: Ensure all files exist in `inputs/` directory
 - **Convergence failures**: Adjust `max_evap_step_mol_L` in code if needed
 - **Import errors**: Run from project root with `python -m src.run`
 
@@ -153,7 +153,7 @@ salina-new/
 
 The system uses a 365-day CSV file to simulate realistic seasonal evaporation patterns instead of constant rates.
 
-**File Format** (`files/evap_diaria.csv`):
+**File Format** (`inputs/evap_diaria.csv`):
 ```csv
 Fecha,evap_mol_day_L
 2023-09-01,0.1938
@@ -192,11 +192,11 @@ Fecha,evap_mol_day_L
 ...continue for 365 days...
 ```
 
-**Step 2**: Place the file in the `files/` directory (e.g., `files/my_rates.csv`)
+**Step 2**: Place the file in the `inputs/` directory (e.g., `inputs/my_rates.csv`)
 
 **Step 3**: Update `env.yaml` configuration:
 ```yaml
-evaporation_schedule: "files/my_rates.csv"
+evaporation_schedule: "inputs/my_rates.csv"
 ```
 
 **Step 4**: Run simulation - it will automatically use your rates!

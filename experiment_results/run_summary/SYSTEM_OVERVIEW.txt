@@ -1,7 +1,7 @@
 SALINA EVAPORATION POND SYSTEM - RUN SUMMARY
 =============================================
 Generated: 2025-09-08
-Variable Evaporation Schedule: files/evap_diaria.csv (365 days, seasonal rates 0.118-0.507 mol/day/L)
+Variable Evaporation Schedule: inputs/evap_diaria.csv (365 days, seasonal rates 0.118-0.507 mol/day/L)
 
 SYSTEM DESIGN:
 - 6 Ponds operating in cascade configuration
