@@ -317,4 +317,4 @@ Using schedule slice [76:142] = 66 days, first few: [0.237, 0.237, 0.237, 0.237,
 ```
 Creates PHREEQC input with 66 sequential reaction steps, each removing the exact amount for that day.
 
-**Key Point**: **1 CSV row** = **1 PHREEQC step** = **1 simulation day** with proper geochemical modeling at each time step!
+**Key Point**: **1 CSV row** = **1 PHREEQC step** = **1 simulation day** with proper geochemical modeling at each time step.
