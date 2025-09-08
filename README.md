@@ -2,7 +2,7 @@
 
 This project simulates a **6-pond cascade evaporation system** for salt production using PHREEQC geochemical modeling. The system implements variable seasonal evaporation rates and automatic transfer triggering based on halite formation.
 
-## 🔬 Experiment Overview
+## Experiment Overview - Balsas
 
 The simulation models a real-world salt production facility with:
 
@@ -19,7 +19,7 @@ The simulation models a real-world salt production facility with:
 4. Process continues creating increasingly concentrated ponds
 5. System generates 5 transfers over ~9-10 months of operation
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Environment Setup
 ```bash
@@ -56,7 +56,7 @@ python -m src.run
 
 **Note**: All paths are configured in `env.yaml` - no command line arguments needed!
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 salina-new/
@@ -80,7 +80,7 @@ salina-new/
 └── env.yaml                      # Configuration file (all paths and settings)
 ```
 
-## 📊 Experiment Inputs
+## Experiment Inputs
 
 ### Input Files (files/ directory):
 - **brineData.txt**: Initial brine composition in PHREEQC SOLUTION format
@@ -92,7 +92,7 @@ salina-new/
 - Input/output directory configuration
 - Simulation parameters (steps, rate caps, etc.)
 
-## 📈 Experiment Outputs
+## Experiment Outputs
 
 ### Result Files (experiment_results/output/):
 - **results.dat**: Pond 1 initial evolution (days 0-36)
@@ -131,7 +131,7 @@ salina-new/
 - **Multi-stage Pipeline**: P1 → P6 cascade with legacy filename compatibility
 - **Robust Parsing**: Centralized selected-output processing with error handling
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Common Issues:
 - **PHREEQC not found**: Check `env.yaml` phreeqc_bin path
