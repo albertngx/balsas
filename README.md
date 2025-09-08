@@ -123,7 +123,7 @@ salina-new/
 - Comprehensive transfer summary with pond performance metrics
 - System efficiency indicators and halite concentration tracking
 
-## 🔧 Technical Implementation
+## Technical Implementation
 
 - **PHREEQC Integration**: Wrapped in `src.workingTools.phreeqcModel` with absolute paths
 - **Variable Evaporation**: 1 step = 1 day with seasonal rate scheduling
@@ -146,3 +146,119 @@ salina-new/
 
 - If imports for pandas/matplotlib show unresolved in VS Code, select the `.venv` interpreter.
 - If PHREEQC is not found, verify the folder `phreeqc-*/bin/phreeqc` exists and that a database file like `phreeqc.dat` is under `phreeqc-*/database/`.
+
+## Frequently Asked Questions (FAQ)
+
+### **Q: How do variable evaporation rates work?**
+
+The system uses a 365-day CSV file to simulate realistic seasonal evaporation patterns instead of constant rates.
+
+**File Format** (`files/evap_diaria.csv`):
+```csv
+Fecha,evap_mol_day_L
+2023-09-01,0.1938
+2023-09-02,0.3973
+2023-09-03,0.3762
+...365 rows total...
+```
+
+**Implementation Flow**:
+1. **CSV Loading**: System reads `evap_mol_day_L` column into a 365-day schedule
+2. **Daily Mapping**: Each CSV row = 1 simulation day = 1 PHREEQC reaction step  
+3. **Progressive Slicing**: Each pond stage uses the next slice of the annual cycle
+4. **PHREEQC Generation**: Creates variable-rate REACTION blocks like:
+   ```phreeqc
+   REACTION 1
+   Water
+   -0.1938 mol    # Day 1 rate
+   -0.3973 mol    # Day 2 rate
+   -0.3762 mol    # Day 3 rate
+   30 steps       # Total days in this stage
+   ```
+
+**Seasonal Behavior**:
+- **Summer**: High rates (0.4-0.5 mol/day/L) → faster halite formation
+- **Winter**: Low rates (0.1-0.2 mol/day/L) → slower concentration  
+- **Transitions**: Realistic spring/fall variations
+
+### **Q: How do I add my own evaporation data?**
+
+**Step 1**: Create your CSV file with this exact format:
+```csv
+Fecha,evap_mol_day_L
+2024-01-01,0.150
+2024-01-02,0.155
+2024-01-03,0.148
+...continue for 365 days...
+```
+
+**Step 2**: Place the file in the `files/` directory (e.g., `files/my_rates.csv`)
+
+**Step 3**: Update `env.yaml` configuration:
+```yaml
+evaporation_schedule: "files/my_rates.csv"
+```
+
+**Step 4**: Run simulation - it will automatically use your rates!
+
+**Tips**:
+- **Units**: Use `mol/day/L` (moles of water per day per liter of brine)
+- **Range**: Typical values 0.1-0.5, higher values may need rate capping
+- **Length**: Must be exactly 365 days for annual cycle
+- **Column**: Must have `evap_mol_day_L` header (case-sensitive)
+
+### **Q: What if I don't have evaporation data?**
+
+No problem! The system falls back to constant rates if:
+- No CSV file is configured
+- CSV file is missing or invalid
+- Column `evap_mol_day_L` not found
+
+It will use the default constant rate (0.273 mol/day/L) and show:
+```
+No evaporation schedule configured - using constant rate
+```
+
+### **Q: How is the rate data validated?**
+
+The system includes several safety features:
+- **Rate Capping**: High values automatically capped at 0.35 mol/day/L for stability
+- **Missing Data**: Falls back to constant rate if CSV problems occur
+- **Console Reporting**: Shows loaded schedule statistics:
+  ```
+  Loaded evaporation schedule from evap_diaria.csv
+  Schedule: 365 days, avg rate: 0.320 mol/day/L
+  Rate range: 0.118 to 0.507 mol/day/L
+  ```
+
+### **Q: Can I use different time periods?**
+
+Currently the system expects exactly 365 days. For shorter/longer periods:
+- **Shorter**: Repeat your data to reach 365 days
+- **Longer**: The system will cycle back to day 1 after day 365
+- **Custom lengths**: Would require modifying `src/io/loaders.py`
+
+### **Q: How do I verify variable rates are working?**
+
+Look for these indicators in the console output:
+1. **Loading confirmation**: `"Loaded evaporation schedule from [filename]"`
+2. **Variable slices**: Different rate ranges per stage:
+   ```
+   Using schedule slice [0:30] = 30 days, first few: [0.194, 0.397, 0.376...]
+   Using schedule slice [30:76] = 46 days, first few: [0.237, 0.237, 0.237...]
+   ```
+3. **Realistic timing**: Transfer days that vary with seasonal rates
+4. **Plot variation**: Saved plots show non-linear mineral evolution curves
+
+### **Q: Where is this implemented in the code?**
+
+**Key Files**:
+- `src/io/loaders.py`: CSV loading and validation
+- `src/domain/simulation.py`: Schedule slicing and PHREEQC generation  
+- `src/utils/config.py`: Path resolution from env.yaml
+- `env.yaml`: Configuration file specifying CSV location
+
+**Core Functions**:
+- `load_input()`: Loads CSV into `params.evap_schedule_mol_per_day_L`
+- `_get_evap_steps_variable_schedule()`: Slices schedule by simulation days
+- `_write_reaction_block()`: Generates variable-rate PHREEQC input blocks
