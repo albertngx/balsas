@@ -292,7 +292,7 @@ def _write_reaction_block(self, fh, ...):
         # Get slice of schedule for this simulation stage
         sched = full[start:end]  # e.g., days 76-142
         
-        # Write each day as separate PHREEQC step
+        # Write each day as a separate PHREEQC step
         sched_line = " ".join(f"-{rate}" for rate in sched)
         fh.write(f"{sched_line}\n")  # One line with all rates
         fh.write("INCREMENTAL_REACTIONS true\n")
