@@ -1,0 +1,18 @@
+README macOS.TXT
+
+                                PHREEQC
+
+       A program for speciation, batch-reaction, one-dimensional 
+            transport, and inverse geochemical calculations
+
+This file describes the batch version of PHREEQC version 3 for macOS. Only the features and differences from the Linux version are discussed. Please refer to the README file in the doc folder for additional information. This version of PHREEQC is compiled for macOS (10.7 and up) by using the source code distributed with the Linux source version; no changes have been made to the code. Compilation used the command-line tools as distributed by Apple, Inc., using system 10.7.5.
+
+The .dmg file, once opened in Finder, reveals a window containing the phreeqc folder and this file. To install PHREEQC on your system, drag the folder to a location on your Mac for which you have write permission. This will typically be your Documents folder or another folder within your Home directory. PHREEQC is not designed to operate within your Applications folder, as it requires writing to a log file created in the phreeqc folder. The installed phreeqc folder has similar directories and files to the Linux distribution except as discussed below.
+
+There is an AppleScript application called "run phreeqc" to make it easier to use the program on macOS; the source code for this AppleScript is in the src folder. The file "editor.txt" is provided so that the user can choose a default text editor to open the output files. As distributed, this file contains a single line specifying "TextEdit.app". This can be changed to the name of a different text editor application if desired. If this file is missing or empty, then TextEdit will be used to open output files. The test folder contains two shell scripts (test and clean) renamed from .sh files to .command files to enable running them directly from Finder. Minor additions to the code for these scripts have been made to enable them to operate within the test folder. Terminal will open when either test.command or clean.command is run.
+
+To operate PHREEQC, open or double-click on the run phreeqc application. After the brief instruction dialog, you will be prompted to select files for input, output, and database. The input and output files may be stored anywhere on your system, but the database files must remain in the database folder. Because the run phreeqc application relies on a certain directory structure, the distribution files should not be relocated. Note that the PHREEQC executable (in the bin folder) also can be run from Terminal, for example by opening it in Finder.
+
+There are two common issues that may arise when operating PHREEQC on macOS. First, the input file must have Unix line endings (LF). This is the default for macOS, but if you move files from Windows/DOS or from classic macOS you will need to re-save them using a text editor such as BBEdit (available from www.barebones.com). Second, you may encounter security warnings because run phreeqc and the PHREEQC executable are not registered with Apple, Inc. You may need to temporarily change your security settings or Control-click on the run phreeqc application and select Open from the pop-up menu to allow continued operation without warnings on your system.
+
+Help files and documentation are provided; see the README file for details. In order to use the compiled html (.chm) file on macOS, an application such as CHM Reader can be used.

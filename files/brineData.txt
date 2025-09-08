@@ -1,0 +1,11 @@
+temp 25
+pH 8.3
+units mg/l
+density 1.2
+Ca 4000
+K 25
+Na 101000 -charge
+Cl 163000
+S 11000
+N(+3) 250
+C(4) 250

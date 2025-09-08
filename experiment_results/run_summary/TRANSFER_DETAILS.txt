@@ -1,0 +1,70 @@
+DETAILED TRANSFER LOG
+====================
+
+TRANSFER 1: Pond 1 → Pond 2 (Day 30)
+-------------------------------------
+Trigger: Halite formation in Pond 1 after 30 days of initial evaporation
+Source State: results.dat shows halite = 0.0016 mol at day 30
+Transfer Volume: ~1L concentrated brine (estimated based on unit volume)
+Destination: Pond 2 starts fresh operation with transferred concentrate
+Result: Pond 2 operates 99 days, reaches halite = 0.0167 mol
+
+TRANSFER 2: Pond 1 → Pond 3 (Day 76) 
+-------------------------------------
+Trigger: Halite formation in Pond 1 after 46 days of continued operation
+Source State: results4.dat shows halite = 0.0111 mol at day 46 (relative)
+Absolute Day: 30 + 46 = 76 days from simulation start
+Transfer Volume: ~1L concentrated brine
+Destination: Pond 3 starts operation with transferred concentrate  
+Result: Pond 3 operates 99 days, reaches halite = 0.0239 mol
+
+TRANSFER 3: Pond 1 → Pond 4 (Day 142)
+--------------------------------------
+Trigger: Halite formation in Pond 1 after 66 days of continued operation
+Source State: results7.dat shows halite = 0.0011 mol at day 66 (relative)
+Absolute Day: 76 + 66 = 142 days from simulation start
+Transfer Volume: ~1L concentrated brine
+Destination: Pond 4 starts operation with transferred concentrate
+Result: Pond 4 operates 99 days, reaches halite = 0.0385 mol
+
+TRANSFER 4: Pond 1 → Pond 5 (Day 187)
+--------------------------------------  
+Trigger: Halite formation in Pond 1 after 45 days of continued operation
+Source State: results10.dat shows halite = 0.0128 mol at day 45 (relative)
+Absolute Day: 142 + 45 = 187 days from simulation start
+Transfer Volume: ~1L concentrated brine
+Destination: Pond 5 starts operation with transferred concentrate
+Result: Pond 5 operates 99 days, reaches halite = 0.0385 mol
+
+TRANSFER 5: Pond 1 → Pond 6 (Day 218)
+--------------------------------------
+Trigger: Halite formation in Pond 1 after 31 days of continued operation  
+Source State: results13.dat shows halite = 0.0367 mol at day 31 (relative)
+Absolute Day: 187 + 31 = 218 days from simulation start
+Transfer Volume: ~1L concentrated brine
+Destination: Pond 6 starts operation with transferred concentrate
+Result: Pond 6 operates 99 days, reaches halite = 0.0385 mol
+
+VOLUME CALCULATIONS:
+===================
+Note: The simulation assumes unit volumes (1L) for computational purposes.
+In a real system, volumes would be calculated based on:
+- Pond areas (from pondsData.txt)
+- Operating levels
+- Transfer ratios between ponds
+
+For actual volumes, multiply results by:
+Volume_real = halite_moles × pond_area_m2 × operating_depth_m × 1000 L/m3
+
+SEASONAL RATE IMPACT:
+====================
+Transfer timing is influenced by seasonal evaporation rates:
+- Day 30: Early autumn rates (0.19-0.40 mol/day/L)
+- Day 76: Mid-autumn rates (0.24 mol/day/L average)  
+- Day 142: Late autumn/early winter rates (0.15 mol/day/L average)
+- Day 187: Winter/spring transition rates (0.31 mol/day/L average)
+- Day 218: Spring rates (0.35 mol/day/L average, capped)
+
+The variable scheduling creates realistic seasonal timing for transfers,
+with faster concentration in high-evaporation periods and slower progress
+during low-evaporation winter months.
