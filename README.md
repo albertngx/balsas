@@ -42,12 +42,17 @@ The system uses `env.yaml` for all paths and settings:
 # macOS/Linux
 ./run_simulation.sh
 
-# Windows  
+# Windows (regular Python/venv)
 run_simulation.bat
+
+# Windows (Miniconda/Anaconda users)
+run_miniconda.bat
 
 # With optional plot preview
 ./run_simulation.sh --plot
 ```
+
+**📋 Miniconda/Anaconda Users**: See [README_MINICONDA.md](README_MINICONDA.md) for detailed setup instructions.
 
 **Direct Python Option:**
 ```bash

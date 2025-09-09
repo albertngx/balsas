@@ -18,6 +18,23 @@ echo Using Python:
 python --version
 echo.
 
+REM Check if we're already in a conda environment
+if defined CONDA_DEFAULT_ENV (
+    echo Using conda environment: %CONDA_DEFAULT_ENV%
+    echo Python location: 
+    where python
+    echo.
+    goto :check_deps
+)
+
+REM Check if conda is available
+conda --version >nul 2>&1
+if not errorlevel 1 (
+    echo Conda detected. Attempting to use conda environment...
+    echo For best results, consider using run_miniconda.bat
+    echo.
+)
+
 REM Check if virtual environment exists
 if exist ".venv\Scripts\activate.bat" (
     echo Activating virtual environment...
@@ -27,12 +44,14 @@ if exist ".venv\Scripts\activate.bat" (
     echo.
 )
 
+:check_deps
 REM Check if requirements are installed
 echo Checking dependencies...
 python -c "import pandas, yaml, matplotlib" >nul 2>&1
 if errorlevel 1 (
     echo Warning: Some dependencies may be missing
     echo Consider running: pip install -r requirements.txt
+    echo Miniconda users: use run_miniconda.bat instead
     echo.
 )
 
