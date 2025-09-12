@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  salina-simulation:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: salina-pond-sim
+    volumes:
+      # Mount output directory to persist results
+      - ./experiment_results:/app/experiment_results
+      # Optional: mount inputs for easy modification
+      - ./inputs:/app/inputs:ro
+      # Optional: mount custom config
+      - ./env.yaml:/app/env.yaml:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DISPLAY=${DISPLAY:-:0}  # For plot display (Linux)
+    # For GUI applications on Linux (optional)
+    # volumes:
+    #   - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    # network_mode: host
+    restart: unless-stopped
+    profiles:
+      - simulation
+
+  # Development service with interactive shell
+  salina-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: salina-dev
+    volumes:
+      - .:/app
+      - /app/.venv  # Exclude venv from mount
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    profiles:
+      - dev
+
+  # Service for running with plots (requires X11 forwarding on Linux)
+  salina-with-plots:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: salina-plots
+    volumes:
+      - ./experiment_results:/app/experiment_results
+      - ./inputs:/app/inputs:ro
+      - ./env.yaml:/app/env.yaml:ro
+      # X11 forwarding for GUI (Linux only)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DISPLAY=${DISPLAY}
+    network_mode: host
+    command: ["python", "-m", "src.run", "--plot"]
+    profiles:
+      - plots
+
+networks:
+  default:
+    name: salina-network

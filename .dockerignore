@@ -1,0 +1,32 @@
+# Add Docker-specific ignores
+.git
+.gitignore
+*.md
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.txt
+!requirements.txt
+
+# Development files
+run_simulation.bat
+run_simulation.sh
+run_miniconda.bat

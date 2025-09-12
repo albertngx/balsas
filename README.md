@@ -52,7 +52,19 @@ run_miniconda.bat
 ./run_simulation.sh --plot
 ```
 
-**📋 Miniconda/Anaconda Users**: See [README_MINICONDA.md](README_MINICONDA.md) for detailed setup instructions.
+**� Docker Option (Recommended for reproducibility):**
+```bash
+# Quick start with Docker Compose
+docker-compose up --build salina-simulation
+
+# Or with direct Docker
+docker build -t salina-simulation .
+docker run --rm -v $(pwd)/experiment_results:/app/experiment_results salina-simulation
+```
+
+**�📋 Platform-Specific Guides**:
+- **Miniconda/Anaconda**: See [README_MINICONDA.md](README_MINICONDA.md)
+- **Docker**: See [README_DOCKER.md](README_DOCKER.md)
 
 **Direct Python Option:**
 ```bash
