@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Tuple
 
 import pandas as pd
 
@@ -16,11 +16,13 @@ class Simulation:
     params: SimulationParams
     work_dir: Path
 
+    # ====================== Utilidades internas ======================
+
     def _evap_mols(self, days: int) -> float:
         return self.params.evaporation_rate_mol_per_day_L * days
 
     def _pond_volume_L(self, pond: Pond, level_m: float) -> float:
-        return pond.area_m2 * level_m * 1000.0  # m3 to L
+        return pond.area_m2 * level_m * 1000.0  # m3 -> L
 
     def _get_column(self, df: pd.DataFrame, candidates: list[str], fallback_idx: int | None = None) -> pd.Series:
         cols_low = {c.lower(): c for c in df.columns}
@@ -50,6 +52,92 @@ class Simulation:
             print(f"A transfer is advised at day {day}")
             return day
         return None
+
+    # --------- NUEVO: volumen restante a partir del SELECTED_OUTPUT ---------
+
+    def _remaining_vol_from_output(self, df: pd.DataFrame, target_day: int) -> float:
+        """
+        Calcula el volumen restante en Pond1 (m3) en el día 'target_day' usando:
+          - Columna 'reaction' (moles de H2O evaporados acumulados) del SELECTED_OUTPUT
+          - initial_pond1_m3 (m3) desde params/config (o capacidad de pond1 si falta)
+          - liquid_density_g_per_L (g/L) desde params/config (por defecto 1000)
+        Fórmula:
+            evap_L = n_evap_mol * 18.01528 (g/mol) / rho (g/L)
+            remaining_m3 = max(init_m3 - evap_L/1000, 0)
+        """
+        # Volumen inicial
+        init = getattr(self.params, "initial_pond1_m3", None)
+        if init is None:
+            caps = getattr(self.params, "pond_capacities_m3", None) or getattr(self.params, "params", {}).get("pond_capacities_m3", {})
+            init = float(caps.get("pond1", 0.0))
+
+        # Densidad (g/L)
+        rho = getattr(self.params, "liquid_density_g_per_L", None)
+        if rho is None:
+            rho = getattr(self.params, "params", {}).get("liquid_density_g_per_L", 1000.0)
+        rho = float(rho)
+
+        # Series tiempo y reacción (mol H2O)
+        time = self._get_column(df, ["time", "Time", "step", "Step", "reaction", "Reaction"], fallback_idx=5)
+        reaction = self._get_column(df, ["reaction", "Reaction"], fallback_idx=6)
+        t_num = pd.to_numeric(time, errors="coerce")
+        r_num = pd.to_numeric(reaction, errors="coerce")
+
+        # Elegir el primer registro con t >= target_day; si no existe, usar el último
+        mask = t_num >= float(target_day)
+        if mask.any():
+            n_evap_mol = float(r_num[mask].dropna().iloc[0])
+        else:
+            n_evap_mol = float(r_num.dropna().iloc[-1])
+
+        evap_L = n_evap_mol * 18.01528 / rho  # L
+        remaining_m3 = max(float(init) - (evap_L / 1000.0), 0.0)
+
+        print(
+            f"[POND1 REMAINING] day={target_day} | init={init:.6f} m3 | "
+            f"n_evap={n_evap_mol:.6f} mol | rho={rho:.1f} g/L | evap_L={evap_L:.6f} L | "
+            f"remaining={remaining_m3:.6f} m3"
+        )
+        return remaining_m3
+
+    # --------- Control de capacidad (destino vacío, descartar exceso) ---------
+
+    def _cap_transfer(self, source_pond: str, target_pond: str, requested_m3: float) -> Tuple[float, float]:
+        """
+        Política 'discard_excess' con capacidades máximas (destino vacío).
+        Devuelve (allowed_m3, discarded_m3) e imprime el resultado.
+        """
+        # Capacidades esperadas como dict: {'pond1': m3, ...}
+        caps = None
+        try:
+            caps = getattr(self.params, "pond_capacities_m3", None)
+        except Exception:
+            caps = None
+        if caps is None:
+            caps = getattr(self.params, "params", {}).get("pond_capacities_m3", None)
+
+        policy = "discard_excess"
+        try:
+            policy = getattr(self.params, "transfer_policy", policy)
+        except Exception:
+            pass
+
+        if not caps or target_pond not in caps:
+            print(f"[TRANSFER CHECK] No capacities; assuming no cap: requested={requested_m3:.8f} m3")
+            return float(requested_m3), 0.0
+
+        target_max = float(caps[target_pond])
+        allowed = min(float(requested_m3), target_max)
+        discarded = max(float(requested_m3) - allowed, 0.0)
+
+        print(
+            f"[TRANSFER CAPACITY] {source_pond} -> {target_pond} | "
+            f"requested={requested_m3:.8f} m3 | target_max={target_max:.8f} m3 | "
+            f"allowed={allowed:.8f} m3 | DISCARDED={discarded:.8f} m3 | policy={policy}"
+        )
+        return allowed, discarded
+
+    # ===================== Bloques y pipeline =====================
 
     def run_initial(self, runner: PhreeqcRunner) -> pd.DataFrame:
         days = self.params.nsteps_default_days
@@ -93,58 +181,58 @@ class Simulation:
         save_phases_tag: str | None = None,
         schedule_start_day: int | None = None,
     ) -> None:
-        """Write a PHREEQC reaction block.
-        If use_phases_tag is provided, reuse that saved EQUILIBRIUM_PHASES set and do NOT redefine a new set.
-        Only define a new EQUILIBRIUM_PHASES when not reusing an existing one.
-        When an evaporation schedule is provided, slice it with an absolute day offset.
-        """
+        """Write a PHREEQC reaction block."""
         factor = max(1, int(self.params.micro_steps_factor))
         total_steps = steps * factor
+
         if use_solution_tag:
             fh.write(f"USE SOLUTION {use_solution_tag}\n")
         else:
             fh.write("USE SOLUTION 1\n")
+
         if use_phases_tag:
             fh.write(f"USE EQUILIBRIUM_PHASES {use_phases_tag}\n")
+
         fh.write(f"REACTION {reaction_id}\n")
         fh.write("Water\n")
-        # If a variable daily schedule is present, emit a line with variable increments
+
+        # Si hay schedule en mol/L/día, emitir incrementos diarios
         if self.params.evap_schedule_mol_per_day_L and steps > 0:
             start = int(schedule_start_day or 0)
             end = start + steps
             full = self.params.evap_schedule_mol_per_day_L
-            # Clip to available schedule, pad with last known value if needed
             sched = full[start:end]
             if len(sched) < steps:
                 fill = full[-1] if len(full) > 0 else self.params.evaporation_rate_mol_per_day_L
                 sched = sched + [fill] * (steps - len(sched))
             print(f"Using schedule slice [{start}:{end}] = {len(sched)} days, first few: {sched[:5]}")
-            
-            # For variable schedules, maintain 1 step = 1 day relationship
-            # Cap individual rates if they're too high for stability
+
+            # Cap por estabilidad numérica (si procede)
             max_step = self.params.max_evap_step_mol_L or float('inf')
             if max_step < float('inf'):
                 sched = [min(rate, max_step) for rate in sched]
                 print(f"Capped rates above {max_step}, range now: {min(sched):.3f} to {max(sched):.3f}")
-            
-            # Cap total days to prevent PHREEQC overload
+
+            # Cap al nº total de pasos
             if len(sched) > self.params.max_total_steps:
                 print(f"WARNING: Capping {len(sched)} days to {self.params.max_total_steps}")
                 sched = sched[:self.params.max_total_steps]
-            
+
             sched_line = " ".join(f"-{x}" for x in sched)
             fh.write(f"{sched_line}\n")
             fh.write("INCREMENTAL_REACTIONS true\n")
         else:
-            # Keep total mol removed equal to ev_mols, just increase steps for stability
+            # Mantener moles totales, con más pasos para estabilidad
             fh.write(f"-{ev_mols} mol in {total_steps} steps\n")
             fh.write("INCREMENTAL_REACTIONS true\n")
-        # Define an EQUILIBRIUM_PHASES set only if not reusing an existing one
+
+        # EQUILIBRIUM_PHASES sólo si no reutilizamos una existente
         if eq_phases_id is not None and not use_phases_tag:
             fh.write(f"EQUILIBRIUM_PHASES {eq_phases_id}\n")
             fh.write("Calcite 0.0 0.0\n")
             fh.write("Gypsum 0.0 0.0\n")
             fh.write("Halite 0.0 0.0\n")
+
         fh.write("SELECTED_OUTPUT\n")
         fh.write(f"-file {results_file}\n")
         fh.write("-selected_out true\n")
@@ -153,21 +241,21 @@ class Simulation:
         fh.write("-reaction true\n")
         fh.write("-equilibrium_phases Calcite Halite Gypsum\n")
         fh.write("-totals Cl Na S K Ca Mg\n")
+
         if save_solution_tag:
             fh.write(f"SAVE SOLUTION {save_solution_tag}\n")
         if save_phases_tag:
             fh.write(f"SAVE EQUILIBRIUM_PHASES {save_phases_tag}\n")
+
         fh.write("END\n")
 
     def run_full_pipeline(self, runner: PhreeqcRunner, max_stages: int = 12) -> tuple[dict[str, pd.DataFrame], dict[str, int]]:
-        """Replicate the legacy Codev1 staged orchestration with SAVE/USE tags and halite-triggered transfers.
-        Produces the same results*.dat files as the legacy script. Also returns a mapping of results file -> absolute start day.
-        """
+        """Pipeline por etapas (equivalente al legacy)."""
         outputs: dict[str, pd.DataFrame] = {}
         stage_start_days: dict[str, int] = {}
         input_path = runner.work_dir / "input.in"
 
-        # 1) Initial POND 1 evolution (100 days) -> results.dat and tr1
+        # 1) Pond 1 inicial (100 días) -> results.dat y tr1
         with open(input_path, "w", encoding="utf-8") as f:
             self._write_solution_header(f)
             self._write_reaction_block(
@@ -188,10 +276,13 @@ class Simulation:
             return outputs, stage_start_days
         tr1 = int(max(1, int(tr1_local)))
 
-        # 2) Prepare transfer to POND 2 at day tr1, then full 100d in POND 2 -> results2.dat
+        # Volumen restante en Pond1 al día tr1 (m3)
+        requested_12 = self._remaining_vol_from_output(df1, tr1)
+
+        # 2) Transfer a Pond 2 y evolución 100 días -> results2.dat
         with open(input_path, "w", encoding="utf-8") as f:
             self._write_solution_header(f)
-            # Short run to transfer point; save SOLUTION 2 and EQ 1 (uses days 0..tr1-1)
+            # Carga hasta el punto de transferencia; guardamos SOLUTION 2 / EQ 1
             self._write_reaction_block(
                 f,
                 reaction_id=1,
@@ -203,7 +294,9 @@ class Simulation:
                 save_phases_tag="1",
                 schedule_start_day=0,
             )
-            # Transfer into POND 2, 100 days (uses days tr1..tr1+99)
+            # Control de capacidad y descarte: Pond1 -> Pond2
+            self._cap_transfer("pond1", "pond2", requested_12)
+            # Evolución Pond 2 (100 días)
             self._write_reaction_block(
                 f,
                 reaction_id=2,
@@ -219,7 +312,7 @@ class Simulation:
         outputs["results2.dat"] = df2
         stage_start_days["results2.dat"] = tr1
 
-        # 3) Evolution of POND 1 after transfer to POND 2 (100 days) -> results3.dat, get tr2 (uses days tr1..tr1+99)
+        # 3) Pond 1 tras transfer a Pond 2 (100 días) -> results3.dat, obtener tr2
         with open(input_path, "a", encoding="utf-8") as f:
             self._write_reaction_block(
                 f,
@@ -241,9 +334,12 @@ class Simulation:
             return outputs, stage_start_days
         tr2 = int(tr1 + int(max(1, int(tr2_local))))
 
-        # 4) Transfer to POND 3: short run on POND 1 to (tr2 - tr1), save SOLUTION 3/EQ 2 -> results4.dat; then 100d in POND 3 -> results5.dat
+        # Volumen restante al día tr2
+        requested_13 = self._remaining_vol_from_output(df3, tr2)
+
+        # 4) Transfer a Pond 3 (carga hasta tr2-tr1) -> results4.dat; evolución Pond 3 100d -> results5.dat
         with open(input_path, "a", encoding="utf-8") as f:
-            # Short run (charge) on POND 1 (uses days tr1..tr2-1)
+            # Carga adicional en Pond 1
             self._write_reaction_block(
                 f,
                 reaction_id=4,
@@ -257,7 +353,9 @@ class Simulation:
                 save_phases_tag="2",
                 schedule_start_day=tr1,
             )
-            # POND 3 evolution 100 days (uses days tr2..tr2+99)
+            # Control: Pond1 -> Pond3
+            self._cap_transfer("pond1", "pond3", requested_13)
+            # Evolución Pond 3
             self._write_reaction_block(
                 f,
                 reaction_id=5,
@@ -277,7 +375,7 @@ class Simulation:
         outputs["results5.dat"] = df5
         stage_start_days["results5.dat"] = tr2
 
-        # 5) Evolution of POND 1 after transfer to POND 3 (100 days) -> results6.dat, get tr3 (uses days tr2..tr2+99)
+        # 5) Pond 1 tras transfer a Pond 3 (100 días) -> results6.dat, obtener tr3
         with open(input_path, "a", encoding="utf-8") as f:
             self._write_reaction_block(
                 f,
@@ -299,7 +397,10 @@ class Simulation:
             return outputs, stage_start_days
         tr3 = int(tr2 + int(max(1, int(tr3_local))))
 
-        # 6) Transfer to POND 4: short run on POND 1 to (tr3 - tr2), save SOLUTION 4/EQ 3 -> results7.dat; then 100d in POND 4 -> results8.dat
+        # Volumen restante al día tr3
+        requested_14 = self._remaining_vol_from_output(df6, tr3)
+
+        # 6) Transfer a Pond 4 -> results7.dat / results8.dat
         with open(input_path, "a", encoding="utf-8") as f:
             self._write_reaction_block(
                 f,
@@ -314,6 +415,8 @@ class Simulation:
                 save_phases_tag="3",
                 schedule_start_day=tr2,
             )
+            # Control: Pond1 -> Pond4
+            self._cap_transfer("pond1", "pond4", requested_14)
             self._write_reaction_block(
                 f,
                 reaction_id=8,
@@ -333,7 +436,7 @@ class Simulation:
         outputs["results8.dat"] = df8
         stage_start_days["results8.dat"] = tr3
 
-        # 7) Evolution of POND 1 after transfer to POND 4 (100 days) -> results9.dat, get tr4 (uses days tr3..tr3+99)
+        # 7) Pond 1 tras transfer a Pond 4 (100 días) -> results9.dat, obtener tr4
         with open(input_path, "a", encoding="utf-8") as f:
             self._write_reaction_block(
                 f,
@@ -355,7 +458,10 @@ class Simulation:
             return outputs, stage_start_days
         tr4 = int(tr3 + int(max(1, int(tr4_local))))
 
-        # 8) Transfer to POND 5: short run on POND 1 to (tr4 - tr3), save SOLUTION 5/EQ 4 -> results10.dat; then 100d in POND 5 -> results11.dat
+        # Volumen restante al día tr4
+        requested_15 = self._remaining_vol_from_output(df9, tr4)
+
+        # 8) Transfer a Pond 5 -> results10.dat / results11.dat
         with open(input_path, "a", encoding="utf-8") as f:
             self._write_reaction_block(
                 f,
@@ -370,6 +476,8 @@ class Simulation:
                 save_phases_tag="4",
                 schedule_start_day=tr3,
             )
+            # Control: Pond1 -> Pond5
+            self._cap_transfer("pond1", "pond5", requested_15)
             self._write_reaction_block(
                 f,
                 reaction_id=11,
@@ -389,7 +497,7 @@ class Simulation:
         outputs["results11.dat"] = df11
         stage_start_days["results11.dat"] = tr4
 
-        # 9) Evolution of POND 1 after transfer to POND 5 (100 days) -> results12.dat, get tr5 (uses days tr4..tr4+99)
+        # 9) Pond 1 tras transfer a Pond 5 (100 días) -> results12.dat, obtener tr5
         with open(input_path, "a", encoding="utf-8") as f:
             self._write_reaction_block(
                 f,
@@ -411,9 +519,12 @@ class Simulation:
             return outputs, stage_start_days
         tr5 = int(tr4 + int(max(1, int(tr5_local))))
 
-        # 10) Transfer to POND 6: short run on POND 1 to (tr5 - tr4), save SOLUTION 6/EQ 5 -> results13.dat; then 100d in POND 6 -> results14.dat
+        # Volumen restante al día tr5
+        requested_16 = self._remaining_vol_from_output(df12, tr5)
+
+        # 10) Transfer a Pond 6 -> results13.dat / results14.dat
         with open(input_path, "a", encoding="utf-8") as f:
-            # Short run to reach transfer 5 (uses days tr4..tr5-1)
+            # Carga hasta tr5
             self._write_reaction_block(
                 f,
                 reaction_id=13,
@@ -427,7 +538,9 @@ class Simulation:
                 save_phases_tag="5",
                 schedule_start_day=tr4,
             )
-            # Pond 6 evolution 100 days (uses days tr5..tr5+99)
+            # Control: Pond1 -> Pond6
+            self._cap_transfer("pond1", "pond6", requested_16)
+            # Evolución Pond 6
             self._write_reaction_block(
                 f,
                 reaction_id=14,

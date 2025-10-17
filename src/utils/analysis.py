@@ -10,7 +10,7 @@ def print_transfer_summary(outputs: Dict[str, pd.DataFrame], stage_start_days: D
     """Print a comprehensive transfer summary showing pond operations and transfers."""
     
     print("\n" + "=" * 80)
-    print("SALINA POND TRANSFER SUMMARY")
+    print("POND TRANSFER SUMMARY")
     print("=" * 80)
     
     # File descriptions mapping

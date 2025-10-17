@@ -1,0 +1,27 @@
+# Salina Evaporation Simulation - Environment Configuration
+# This file contains paths and settings for the simulation
+
+# PHREEQC Configuration
+phreeqc_bin: "C:/Program Files/USGS/phreeqc-3.8.6-17100-x64/bin/phreeqc.bat"
+phreeqc_database: "C:/Program Files/USGS/phreeqc-3.8.6-17100-x64/database/phreeqc.dat"
+
+# Input Data Files
+brine_data: "inputs/brineData.txt"
+ponds_data: "inputs/pondsData.txt"
+evaporation_schedule: "inputs/evap_diaria.csv"
+
+# Output Configuration
+work_dir: "experiment_results"
+plots_dir: "experiment_results/plots"
+summary_dir: "experiment_results/run_summary"
+
+# Simulation Parameters
+default_simulation_days: 100
+max_simulation_steps: 365
+evaporation_rate_cap: 0.35  # mol/day/L - cap for numerical stability
+
+# Initial volume for Pond1 (m³)
+initial_pond1_m3: 18000
+
+# Densidad a usar para convertir moles de salmuera a volumen (g/L). 1000=agua pura.
+liquid_density_g_per_L: 1200

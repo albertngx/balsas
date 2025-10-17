@@ -1,4 +1,4 @@
-# Salina Evaporation Pond System
+# Evaporation Pond System
 
 This project simulates a **6-pond cascade evaporation system** for salt production using PHREEQC geochemical modeling. The system implements variable seasonal evaporation rates and automatic transfer triggering based on halite formation.
 
@@ -22,61 +22,113 @@ The simulation models a real-world salt production facility with:
 ## Quick Start
 
 ### 1. Environment Setup
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+#### Option A — Using Conda (recommended)
+# Create the environment
+conda env create -f environment.yml
+
+# Activate it
+conda activate balsas
+
+# Install Chromium (required for Playwright scraper)
+playwright install chromium
+
+#### Option B — Using virtualenv (advanced users)
+python -m venv .venv
+# Activate environment
+.venv\Scripts\activate        # Windows
+# or:
+source .venv/bin/activate     # Linux / macOS
+
+# Install dependencies
 pip install -r requirements.txt
-```
+playwright install chromium
+
+---
 
 ### 2. Configuration
-The system uses `env.yaml` for all paths and settings:
-- PHREEQC binary and database paths
-- Input data file locations  
-- Output directory configuration
-- Simulation parameters
+
+The system uses config.yaml for all paths and simulation settings:
+- Path to the PHREEQC binary (phreeqc_bin)
+- Path to the PHREEQC database (phreeqc_database)
+- Input files for brine, ponds, and evaporation data
+- Output directories for plots and summaries
+- Simulation parameters (steps, rate caps, etc.)
+
+You can edit these values directly in config.yaml, or override them with environment variables:
+
+# Windows (PowerShell)
+$env:PHREEQC_BIN="C:\Program Files\USGS\phreeqc-3.8.6-17100-x64\bin\phreeqc.bat"
+$env:PHREEQC_DB="C:\Program Files\USGS\phreeqc-3.8.6-17100-x64\database\phreeqc.dat"
+
+# Linux/macOS
+export PHREEQC_BIN=/usr/local/bin/phreeqc
+export PHREEQC_DB=/usr/local/share/phreeqc/phreeqc.dat
+
+---
 
 ### 3. Run Simulation
 
-**Easy Option - Use Platform Scripts:**
-```bash
-# macOS/Linux
-./run_simulation.sh
+Simple execution (recommended):
 
-# Windows (regular Python/venv)
+# Windows
 run_simulation.bat
 
-# Windows (Miniconda/Anaconda users)
-run_miniconda.bat
+# Linux / macOS / WSL
+./run_simulation.sh
 
-# With optional plot preview
-./run_simulation.sh --plot
-```
+This automatically runs:
+1. scraper_rad.py — downloads daily solar radiation
+2. evap_rate.py — computes daily evaporation rates
+3. src/run.py — executes PHREEQC simulations
 
-**� Docker Option (Recommended for reproducibility):**
-```bash
-# Quick start with Docker Compose
-docker-compose up --build salina-simulation
+Results will appear under:
+experiment_results/
+ ├── plots/
+ ├── run_summary/
+ └── output/
 
-# Or with direct Docker
-docker build -t salina-simulation .
-docker run --rm -v $(pwd)/experiment_results:/app/experiment_results salina-simulation
-```
+---
 
-**�📋 Platform-Specific Guides**:
-- **Miniconda/Anaconda**: See [README_MINICONDA.md](README_MINICONDA.md)
-- **Docker**: See [README_DOCKER.md](README_DOCKER.md)
+### 4. Verify PHREEQC configuration (optional but recommended)
 
-**Direct Python Option:**
-```bash
-python -m src.run
-```
+python -c "from src.utils.config import load_config; from pathlib import Path; from src.domain.phreeqc_runner import PhreeqcRunner; cfg=load_config(); PhreeqcRunner.from_paths(Path(cfg['phreeqc_bin']), Path(cfg['phreeqc_database'])); print('PHREEQC configurado correctamente.')"
 
-**Note**: All paths are configured in `env.yaml` - no command line arguments needed!
+---
+
+### 5. Troubleshooting
+
+Error: No browser is installed
+Cause: Playwright has no browser installed
+Solution: Run "playwright install chromium"
+
+Error: PHREEQC binary not found
+Cause: Wrong path in config.yaml
+Solution: Check phreeqc_bin and phreeqc_database
+
+Error: ModuleNotFoundError: yaml
+Cause: PyYAML missing
+Solution: conda install -c conda-forge pyyaml
+
+Error: ModuleNotFoundError: src
+Cause: Run command from wrong folder
+Solution: cd to the project root before running
+
+---
+
+### 6. Reproducibility
+
+To fully reproduce this environment on another computer:
+conda env create -f environment.yml
+conda activate balsas
+
+No additional configuration is required.
+
 
 ## Project Structure
 
 ```
-salina-new/
+code_transfers/
 ├── src/                          # Main source code
 │   ├── domain/                   # Core models and simulation logic  
 │   ├── io/                       # Input/output handling
@@ -91,7 +143,7 @@ salina-new/
 │   ├── brineData.txt             # Initial brine composition (PHREEQC SOLUTION format)
 │   ├── pondsData.txt             # Pond specifications (names and volumes)
 │   └── evap_diaria.csv           # Daily evaporation rates (365 days, seasonal)
-├── phreeqc-3.5.0-14000/         # PHREEQC installation
+├── phreeqc-3.5.0-14000/          # PHREEQC installation
 │   ├── bin/phreeqc               # PHREEQC executable
 │   └── database/phreeqc.dat      # Geochemical database
 └── env.yaml                      # Configuration file (all paths and settings)
