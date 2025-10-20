@@ -1,23 +1,24 @@
 # Evaporation Pond System
 
-This project simulates a **6-pond cascade evaporation system** for salt production using PHREEQC geochemical modeling. The system implements variable seasonal evaporation rates and automatic transfer triggering based on halite formation.
+This project simulates a **6-pond evaporation system** for salt production using PHREEQC geochemical modeling. The system implements variable seasonal evaporation rates and automatic transfer triggering based on halite formation.
 
 ## Experiment Overview - Balsas
 
 The simulation models a real-world salt production facility with:
 
 - **Primary Pond (Pond 1)**: Continuous concentrator that receives fresh brine
-- **Receiving Ponds (2-6)**: Sequential cascade for concentrated brine storage
+- **Receiving Ponds (2-6)**: Sequential ponds for concentrated brine storage
 - **Variable Evaporation**: Seasonal rates from real meteorological data
 - **Automatic Transfers**: Triggered when halite saturation is reached
 - **Geochemical Modeling**: Complete mineral precipitation (halite, gypsum, calcite)
 
 ### System Operation
 1. Pond 1 concentrates brine through evaporation until halite formation
-2. Concentrated brine transfers to next available pond (2→3→4→5→6) 
+2. Concentrated brine transfers to next available pond (2→3→4→5→6), checking frist if the total brine to be transferred doesn't surpass the capacity of the pond
 3. Pond 1 restarts with fresh/diluted brine
-4. Process continues creating increasingly concentrated ponds
-5. System generates 5 transfers over ~9-10 months of operation
+4. The process repeats
+5. The system generates 5 transfers over ~9-10 months of operation
+
 
 ## Quick Start
 
@@ -146,7 +147,7 @@ code_transfers/
 ├── phreeqc-3.5.0-14000/          # PHREEQC installation
 │   ├── bin/phreeqc               # PHREEQC executable
 │   └── database/phreeqc.dat      # Geochemical database
-└── env.yaml                      # Configuration file (all paths and settings)
+└── config.yml                     # Configuration file (all paths and settings)
 ```
 
 ## Experiment Inputs
@@ -156,7 +157,7 @@ code_transfers/
 - **pondsData.txt**: Pond specifications (tab-separated: name, volume in m³)
 - **evap_diaria.csv**: 365-day seasonal evaporation schedule (mol/day/L)
 
-### Configuration (env.yaml):
+### Configuration (config.yml):
 - PHREEQC binary and database paths
 - Input/output directory configuration
 - Simulation parameters (steps, rate caps, etc.)
@@ -209,7 +210,7 @@ code_transfers/
 - **Import errors**: Run from project root with `python -m src.run`
 
 ### Performance Notes:
-- Simulation typically completes in ~2-3 seconds
+- Simulation typically completes in 10-20 seconds
 - Variable evaporation creates realistic 9-10 month operation cycles  
 - System handles 365-day seasonal schedules efficiently
 
@@ -249,32 +250,6 @@ Fecha,evap_mol_day_L
 - **Summer**: High rates (0.4-0.5 mol/day/L) → faster halite formation
 - **Winter**: Low rates (0.1-0.2 mol/day/L) → slower concentration  
 - **Transitions**: Realistic spring/fall variations
-
-### **Q: How do I add my own evaporation data?**
-
-**Step 1**: Create your CSV file with this exact format:
-```csv
-Fecha,evap_mol_day_L
-2024-01-01,0.150
-2024-01-02,0.155
-2024-01-03,0.148
-...continue for 365 days...
-```
-
-**Step 2**: Place the file in the `inputs/` directory (e.g., `inputs/my_rates.csv`)
-
-**Step 3**: Update `env.yaml` configuration:
-```yaml
-evaporation_schedule: "inputs/my_rates.csv"
-```
-
-**Step 4**: Run simulation - it will automatically use your rates!
-
-**Tips**:
-- **Units**: Use `mol/day/L` (moles of water per day per liter of brine)
-- **Range**: Typical values 0.1-0.5, higher values may need rate capping
-- **Length**: Must be exactly 365 days for annual cycle
-- **Column**: Must have `evap_mol_day_L` header (case-sensitive)
 
 ### **Q: What if I don't have evaporation data?**
 

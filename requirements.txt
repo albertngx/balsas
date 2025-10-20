@@ -3,3 +3,9 @@ numpy>=1.24
 pandas>=2.0
 matplotlib>=3.7
 pyyaml
+
+# Web scraping
+playwright
+
+# Python version requirement
+python>=3.12
